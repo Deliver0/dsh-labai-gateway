@@ -285,7 +285,7 @@ async function reportToGateway(key) {
   }
 
   if (!ip) {
-    console.log('  暂时连不上网关，申请还没提交。连上校园网后重新打开 DSH 会自动报到，不用重装。\n');
+    console.log('  暂时连不上网关，申请还没提交。连上校园网后重新运行一次安装脚本就会报到，不用重装。\n');
     return;
   }
 
@@ -306,13 +306,13 @@ async function reportToGateway(key) {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
       console.log(`  报到没成功：${(d.error && d.error.message) || d.detail || ('HTTP ' + r.status)}`);
-      console.log('  把这段提示截图发给管理员即可，不用重装。\n');
+      console.log('  把这段提示截图发给发 Key 的人即可，不用重装。\n');
       return;
     }
     if (d.status === 'pending') {
       console.log('  --------------------------------------------------');
       console.log('   申请已提交，正在等管理员审批');
-      console.log('   管理员在管理页点「通过」后，重新打开 DSH 就能用了。');
+      console.log('   等管理页点了「通过」之后，重新打开 DSH 就能用了。');
       console.log(`   随时查状态： ${PROXY_URL}/__labai/status`);
       console.log('   看到 "approval":{"status":"active"} 就是通过了。');
       console.log('  --------------------------------------------------\n');
@@ -320,7 +320,7 @@ async function reportToGateway(key) {
       console.log(`  ${d.message || '已经通过审批，可以正常使用了。'}\n`);
     }
   } catch (err) {
-    console.log(`  暂时连不上网关（${(err && err.message) || '超时'}），联网后重新打开 DSH 会自动报到。\n`);
+    console.log(`  暂时连不上网关（${(err && err.message) || '超时'}），联网后重新运行一次安装脚本就会报到。\n`);
   } finally {
     clearTimeout(timer);
   }
@@ -346,7 +346,7 @@ async function main() {
 
   let key = flag('--key');
   if (!key) {
-    console.log('\n请粘贴管理员发给你的 API Key（sk-lab- 开头）：');
+    console.log('\n请粘贴发给你的 API Key（sk-lab- 开头）：');
     key = await ask('  Key > ');
   }
   if (!key || /\s/.test(key)) throw new Error('API Key 为空或含空白字符，请重新运行');
@@ -361,7 +361,7 @@ async function main() {
   patchCordis(false);
   patchCredentials(key, false);
   printDone(backupDir);
-  console.log('下一步：完全退出 DeepSeek Harness，再重新打开（托盘里也退掉）。\n');
+  console.log('下一步：DSH 先别打开，等审批通过后再打开。\n');
   await reportToGateway(key);
 }
 
