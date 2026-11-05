@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Lab AI Gateway Plugins",
+    "zh": "实验室 AI 网关插件索引"
+  },
+  "description": {
+    "en": "Private DSH plugin index for the lab AI gateway. A lab-issued API key and campus network access are required.",
+    "zh": "实验室内部 DSH 插件索引。需要管理员签发的 API Key，并接入实验室所在校园网。"
+  },
+  "metadata": {
+    "categories": {
+      "gateway": {
+        "title": {
+          "en": "Gateway",
+          "zh": "网关"
+        }
+      }
+    },
+    "labels": {},
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "dsh-labai-gateway",
+      "title": "Deliver0/dsh-labai-gateway",
+      "description": {
+        "en": "Keep DSH pointed at 127.0.0.1:8801 forever. The plugin discovers the lab gateway's current IP automatically after DHCP changes, and injects your personal API key locally.",
+        "zh": "实验室 AI 网关 DSH 插件。工具里固定填 127.0.0.1:8801，网关 DHCP 换 IP 后自动发现新地址并重试，本机自动注入个人 Key，SSE 流式原样透传。"
+      },
+      "homepage": "https://github.com/Deliver0/dsh-labai-gateway",
+      "repository": {
+        "url": "https://github.com/Deliver0/dsh-labai-gateway"
+      },
+      "metadata": {
+        "category": "gateway",
+        "keywords": [
+          "lab",
+          "gateway",
+          "dhcp",
+          "proxy",
+          "deepseek"
+        ],
+        "labels": [],
+        "sortKeys": {}
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1793868959,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Deliver0/dsh-labai-gateway",
+            "commit": "aadeef552cd27a91b16361585421e98ad203e4e2"
+          },
+          "engines": {
+            "dsh": ">=0.2.1"
+          }
+        }
+      ]
+    }
+  ]
+}
