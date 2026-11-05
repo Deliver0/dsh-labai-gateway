@@ -306,13 +306,13 @@ async function reportToGateway(key) {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
       console.log(`  报到没成功：${(d.error && d.error.message) || d.detail || ('HTTP ' + r.status)}`);
-      console.log('  把这段提示截图发给发 Key 的人即可，不用重装。\n');
+      console.log('  把这段提示截图发给管理员即可，不用重装。\n');
       return;
     }
     if (d.status === 'pending') {
       console.log('  --------------------------------------------------');
       console.log('   申请已提交，正在等审批');
-      console.log('   等发 Key 的人点了「通过」之后，重新打开 DSH 就能用了。');
+      console.log('   等管理员点了「通过」之后，重新打开 DSH 就能用了。');
       console.log(`   随时查状态： ${PROXY_URL}/__labai/status`);
       console.log('   看到 "approval":{"status":"active"} 就是通过了。');
       console.log('  --------------------------------------------------\n');
@@ -346,7 +346,7 @@ async function main() {
 
   let key = flag('--key');
   if (!key) {
-    console.log('\n请粘贴发给你的 API Key（sk-lab- 开头）：');
+    console.log('\n请粘贴管理员发给你的 API Key（sk-lab- 开头）：');
     key = await ask('  Key > ');
   }
   if (!key || /\s/.test(key)) throw new Error('API Key 为空或含空白字符，请重新运行');
