@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 426" width="980" height="426" font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+  <rect x="0.5" y="0.5" width="979" height="425" rx="14" fill="#ffffff" stroke="#e5e7eb"/>
+
+  <text x="28" y="40" font-size="17" font-weight="700" fill="#111827">一次对话，请求是怎么走的</text>
+  <text x="28" y="62" font-size="12" fill="#6b7280">你只用在 DSH 里选 Lab436，剩下的都是自动的</text>
+
+  <!-- ① 同学电脑 -->
+  <rect x="20" y="86" width="250" height="250" rx="12" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text x="145" y="112" font-size="13" font-weight="700" fill="#2563eb" text-anchor="middle">你的电脑（每人一台）</text>
+  <line x1="34" y1="124" x2="256" y2="124" stroke="#e8edf4"/>
+  <circle cx="38" cy="148" r="2.6" fill="#2563eb"/>
+  <text x="50" y="152" font-size="12" fill="#374151">DSH 里选 Lab436</text>
+  <circle cx="38" cy="178" r="2.6" fill="#2563eb"/>
+  <text x="50" y="182" font-size="12" fill="#374151">本地代理 127.0.0.1:8801</text>
+  <circle cx="38" cy="208" r="2.6" fill="#2563eb"/>
+  <text x="50" y="212" font-size="12" fill="#374151">一人一把 sk-lab-… Key</text>
+  <circle cx="38" cy="238" r="2.6" fill="#2563eb"/>
+  <text x="50" y="242" font-size="12" fill="#374151">每把 Key 绑一个 IP</text>
+  <text x="145" y="318" font-size="11" fill="#9ca3af" text-anchor="middle">地址自动发现，换 IP 不用改</text>
+
+  <!-- ② 网关 -->
+  <rect x="365" y="86" width="250" height="250" rx="12" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text x="490" y="112" font-size="13" font-weight="700" fill="#16a34a" text-anchor="middle">实验室网关（管理员维护）</text>
+  <line x1="379" y1="124" x2="601" y2="124" stroke="#e8edf4"/>
+  <circle cx="383" cy="148" r="2.6" fill="#16a34a"/>
+  <text x="395" y="152" font-size="12" fill="#374151">核对 Key：这是谁</text>
+  <circle cx="383" cy="178" r="2.6" fill="#16a34a"/>
+  <text x="395" y="182" font-size="12" fill="#374151">核对 IP：是不是他机器</text>
+  <circle cx="383" cy="208" r="2.6" fill="#16a34a"/>
+  <text x="395" y="212" font-size="12" fill="#374151">记一笔：用了多少</text>
+  <circle cx="383" cy="238" r="2.6" fill="#16a34a"/>
+  <text x="395" y="242" font-size="12" fill="#374151">用组账号转发出去</text>
+  <text x="490" y="318" font-size="11" fill="#9ca3af" text-anchor="middle">常开的一台机器</text>
+
+  <!-- ③ 官网 -->
+  <rect x="710" y="86" width="250" height="250" rx="12" fill="#fbfcfe" stroke="#e3e8ef"/>
+  <text x="835" y="112" font-size="13" font-weight="700" fill="#ea580c" text-anchor="middle">DeepSeek 官网</text>
+  <line x1="724" y1="124" x2="946" y2="124" stroke="#e8edf4"/>
+  <circle cx="728" cy="148" r="2.6" fill="#ea580c"/>
+  <text x="740" y="152" font-size="12" fill="#374151">一个组账号</text>
+  <circle cx="728" cy="178" r="2.6" fill="#ea580c"/>
+  <text x="740" y="182" font-size="12" fill="#374151">管理员往里充钱</text>
+  <circle cx="728" cy="208" r="2.6" fill="#ea580c"/>
+  <text x="740" y="212" font-size="12" fill="#374151">全组共用一份额度</text>
+  <circle cx="728" cy="238" r="2.6" fill="#ea580c"/>
+  <text x="740" y="242" font-size="12" fill="#374151">按用了多少扣费</text>
+  <text x="835" y="318" font-size="11" fill="#9ca3af" text-anchor="middle">额度从这里扣</text>
+
+  <!-- 箭头：同学 → 网关 -->
+  <line x1="274" y1="205" x2="352" y2="205" stroke="#2563eb" stroke-width="2"/>
+  <polygon points="352,200 363,205 352,210" fill="#2563eb"/>
+  <text x="317.5" y="193" font-size="10.5" fill="#1d4ed8" text-anchor="middle">① 请求带 Key</text>
+  <line x1="361" y1="249" x2="284" y2="249" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <polygon points="284,244 273,249 284,254" fill="#9ca3af"/>
+  <text x="317.5" y="267" font-size="10.5" fill="#6b7280" text-anchor="middle">回答原路返回</text>
+
+  <!-- 箭头：网关 → 官网 -->
+  <line x1="619" y1="205" x2="697" y2="205" stroke="#2563eb" stroke-width="2"/>
+  <polygon points="697,200 708,205 697,210" fill="#2563eb"/>
+  <text x="662.5" y="193" font-size="10.5" fill="#1d4ed8" text-anchor="middle">② 用组账号转发</text>
+  <line x1="706" y1="249" x2="629" y2="249" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <polygon points="629,244 618,249 629,254" fill="#9ca3af"/>
+  <text x="662.5" y="267" font-size="10.5" fill="#6b7280" text-anchor="middle">回答</text>
+
+  <!-- 底部说明 -->
+  <rect x="20" y="356" width="940" height="52" rx="12" fill="#f8fafc" stroke="#e8edf4"/>
+  <text x="40" y="380" font-size="12" fill="#374151">网关换了 IP 你不用管：插件先试上次记下的地址，再按网段自己找，找到了自动更新。</text>
+  <text x="40" y="398" font-size="11" fill="#6b7280">Key 别转给别人：绑了 IP 的 Key 换台机器就用不了，没绑 IP 的谁拿到都能用。</text>
+</svg>
