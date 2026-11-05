@@ -311,8 +311,8 @@ async function reportToGateway(key) {
     }
     if (d.status === 'pending') {
       console.log('  --------------------------------------------------');
-      console.log('   申请已提交，正在等管理员审批');
-      console.log('   等管理页点了「通过」之后，重新打开 DSH 就能用了。');
+      console.log('   申请已提交，正在等审批');
+      console.log('   等发 Key 的人点了「通过」之后，重新打开 DSH 就能用了。');
       console.log(`   随时查状态： ${PROXY_URL}/__labai/status`);
       console.log('   看到 "approval":{"status":"active"} 就是通过了。');
       console.log('  --------------------------------------------------\n');
