@@ -1,6 +1,6 @@
 {
   "name": "dsh-labai-gateway",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "实验室 AI 网关的 DSH 插件：本机反代 + 自动发现网关 IP，DHCP 换地址后无需重新配置",
   "private": true,
   "type": "module",
@@ -27,6 +27,7 @@
   "scripts": {
     "selftest": "node bin/selftest.mjs",
     "smoke": "node bin/smoke.mjs",
+    "test:setup": "node test/setup-cases.mjs",
     "setup": "node bin/setup.mjs",
     "teardown": "node bin/setup.mjs --uninstall",
     "update-index": "node bin/update-index.mjs"

@@ -10,7 +10,7 @@
  *
  * 做四件事：
  *   1. 把插件复制到 ~/.dsh/plugins/，并在 profile 的 node_modules 里建目录链接；
- *   2. 在 newapi-provider 里加一条指向 127.0.0.1:8801 的通道并设为默认；
+ *   2. 在 DSH 内置的 llm-pi-ai 里加一个 provider（模型选择里的「Lab436」分组）；
  *   3. 把同学的 Key 写进 DSH 凭证库（refs）；
  *   4. 写 ~/.labai/dsh.json，本地代理据此注入 Key、自动发现网关 IP。
  *
@@ -31,8 +31,7 @@ const HOME = os.homedir();
 const MARK = 'labai-gateway';
 const BEGIN = `# === ${MARK} BEGIN ===`;
 const END = `# === ${MARK} END ===`;
-const CHANNEL_ID = 'labai';
-const PROVIDER_ID = 'labai-provider';
+const PROVIDER_KEY = 'lab436';          // llm-pi-ai 里的 provider 键，也就是模型选择里的分组 id
 const CRED_NAME = 'LABAI_API_KEY';
 const PROXY_URL = `http://127.0.0.1:${DEFAULTS.listenPort}`;
 
@@ -114,7 +113,7 @@ function installFiles() {
 
 /**
  * 找 DSH 的 dsh CLI：先交给 PATH，再试 ~/.local/bin，最后从注册表读安装位置。
- * DSH 不自带 newapi-provider，缺了它写进去的通道会让 DSH 加载失败。
+ * 装完用它 dump 一遍合成后的配置，确认分组真的写进去了。
  */
 function dshCandidates() {
   const isWin = process.platform === 'win32';
@@ -139,30 +138,31 @@ function dshCandidates() {
   return list;
 }
 
-/** 确保 profile 里有 dsh-newapi-provider；没有就用 DSH 自带的 CLI 装一个。 */
-function ensureNewapiProvider() {
-  const target = path.join(NODE_MODULES, 'dsh-newapi-provider');
-  if (fs.existsSync(target)) return true;
-
-  console.log('\n  你的 DSH 还缺 New API 渠道插件，正在自动安装（只装这一次，可能要一两分钟）…');
+/** 装完自己验一遍：dump 出合成后的配置，确认分组真的在里面。 */
+function verifyProvider() {
   for (const bin of dshCandidates()) {
+    let out = '';
     try {
-      execFileSync(bin, ['plugin', '--profile', PROFILE, 'add', 'dsh-newapi-provider'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 240000,
+      out = execFileSync(bin, ['--profile', PROFILE, '--dump-config'], {
+        encoding: 'utf8',
+        timeout: 90000,
         windowsHide: true,
-        // Windows 上 .cmd 必须经 shell 才能被 Node 启动
+        stdio: ['ignore', 'pipe', 'ignore'],
         shell: process.platform === 'win32',
       });
     } catch {
-      continue;
+      continue; // 没有 CLI，或者 profile 正被开着的 DSH 占着——跳过，不算失败
     }
-    if (fs.existsSync(target)) {
-      console.log('  已装好 dsh-newapi-provider。\n');
+    if (!out) continue;
+    if (out.includes('llm-pi-ai') && new RegExp(`^\\s*${PROVIDER_KEY}:`, 'm').test(out)) {
+      console.log(`  已确认：模型分组「${LABEL}」已经写进 DSH 配置。\n`);
       return true;
     }
+    console.log(`  注意：配置里没找到「${LABEL}」分组，这个版本的 DSH 可能还不带 llm-pi-ai。`);
+    console.log('  把这段提示截图发给管理员，并附上 DSH 版本号（设置 → 关于）。\n');
+    return false;
   }
-  return false;
+  return null; // 没法验证，不打扰用户
 }
 
 /** package.json：登记 link 依赖 + bundle，保证以后 pnpm install 不会把插件弄丢。 */
@@ -186,24 +186,128 @@ function patchPackageJson(remove = false) {
 }
 
 /**
- * cordis.patch.yml：给实验室网关单独挂一个 newapi-provider 实例，在模型选择里自成一个分组。
+ * cordis.patch.yml：给 DSH 内置的 llm-pi-ai 加一个 provider，在模型选择里自成一个分组。
  *
- * 为什么不用用户已有的那个 newapi-provider：
- *   - 那个实例里通常已经有用户自己的渠道（自己的中转站、别家的模型），
- *     把 labai 塞进去会把它们和实验室混在同一个分组里；
- *   - 旧版本还会改 activeChannel，把用户原本默认的渠道顶掉。
- * 所以这里始终用独立的实例（providerId 也不同），装/卸都不碰别人的配置。
- * 旧版本留下的 labai 通道和 activeChannel 改动，会在安装和卸载时一并清掉。
+ * 为什么不用第二个 newapi-provider 实例（早期版本的做法）：
+ *   dsh-newapi-provider 的 HTTP 路由前缀是写死的 `/newapi-provider/api/`，不随 providerId 变。
+ *   DSH 的 webServer 按 (kind, path) 判重，第二次注册直接抛 duplicate route，
+ *   整个实例随之失效 —— 表现就是「模型选择里根本没有这一组」。
+ *   llm-pi-ai 是 DSH 内置插件，一个实例能挂多个 provider，各自有 key 和 displayName，
+ *   不注册新路由，所以想加几组就加几组。
+ *
+ * 如果同学的 patch 文件里已经有 llm-pi-ai 段（自己配过中转站），
+ * 就把 lab436 塞进它现有的 providers 里，绝不整段覆盖；没有才追加一条同 id 的补丁条目。
  */
+function providerLines(indent) {
+  const p = ' '.repeat(indent);
+  return [
+    `${p}${PROVIDER_KEY}:`,
+    `${p}  displayName: ${LABEL}`,
+    `${p}  api: openai-completions`,
+    `${p}  baseURL: ${PROXY_URL}/v1`,
+    `${p}  apiKeyEnv: ${CRED_NAME}`,
+    // 模型直接写死在配置里：pi-ai 不会去网关拉 /v1/models，
+    // DSH 冷启动时代理还没监听也照样有模型可选。
+    `${p}  models:`,
+    `${p}    - id: deepseek-flash`,
+    `${p}      name: DeepSeek Flash`,
+    `${p}      contextWindow: 128000`,
+    `${p}      maxTokens: 8192`,
+    `${p}    - id: deepseek-v4-pro`,
+    `${p}      name: DeepSeek V4 Pro`,
+    `${p}      contextWindow: 128000`,
+    `${p}      maxTokens: 8192`,
+  ];
+}
+
+/** 在一段已有配置里找 `key:` 这一行；返回 [行号, 缩进, 行内值]，找不到给 [-1, 0, '']。 */
+function findKey(lines, from, to, key) {
+  const re = new RegExp(`^(\\s+)${key}:(.*)$`);
+  for (let i = from; i < to; i += 1) {
+    const m = lines[i].match(re);
+    if (m) return [i, m[1].length, m[2].trim()];
+  }
+  return [-1, 0, ''];
+}
+
+function insertPiAiProvider(lines) {
+  const at = lines.findIndex((l) => /^- id:\s*llm-pi-ai\s*$/.test(l));
+
+  if (at < 0) {
+    // 没有现成的 llm-pi-ai 段：追加一条顶层补丁条目（同 id 覆盖同名插件的配置）
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    lines.push('');
+    lines.push(`# === ${MARK} BEGIN ===`);
+    lines.push('# 走 DSH 内置的 llm-pi-ai。别改成第二个 dsh-newapi-provider 实例：');
+    lines.push('# 它的路由前缀写死成 /newapi-provider/api，第二次注册会被判成重复路由抛错，');
+    lines.push('# 整个实例失效，模型选择里就看不到这一组了。');
+    lines.push('- id: llm-pi-ai');
+    lines.push('  config:');
+    lines.push('    providers:');
+    lines.push(...providerLines(6));
+    lines.push(`# === ${MARK} END ===`);
+    lines.push('');
+    return;
+  }
+
+  // 已有 llm-pi-ai 段：只往它的 providers 里加一个键
+  let end = lines.length;
+  for (let i = at + 1; i < lines.length; i += 1) {
+    if (lines[i] && !/^\s/.test(lines[i])) { end = i; break; }
+  }
+  while (end > at + 1 && !lines[end - 1].trim()) end -= 1; // 别把尾随空行挤到我们写的内容前面
+  if (findKey(lines, at, end, PROVIDER_KEY)[0] >= 0) return; // 已经配过，不重复加
+
+  // 标记块必须把它自己新增的每一行都包住，卸载时才能原样撤回。
+  const [cfg, cfgIndent, cfgInline] = findKey(lines, at, end, 'config');
+  if (cfg < 0) {
+    lines.splice(end, 0,
+      '  ' + `# === ${MARK} BEGIN ===`,
+      '  config:',
+      '    providers:',
+      ...providerLines(6),
+      '  ' + `# === ${MARK} END ===`);
+    return;
+  }
+  if (cfgInline) {
+    throw new Error(`cordis.patch.yml 里 llm-pi-ai 的 config 写成了行内形式，不敢自动改：第 ${cfg + 1} 行。\n`
+      + '  请把它展开成多行（config: 换行后逐项缩进）再重新运行本脚本。');
+  }
+
+  const [prov, provIndent, provInline] = findKey(lines, cfg + 1, end, 'providers');
+  if (prov < 0) {
+    lines.splice(cfg + 1, 0,
+      ' '.repeat(cfgIndent + 2) + `# === ${MARK} BEGIN ===`,
+      ' '.repeat(cfgIndent + 2) + 'providers:',
+      ...providerLines(cfgIndent + 4),
+      ' '.repeat(cfgIndent + 2) + `# === ${MARK} END ===`);
+    return;
+  }
+  if (provInline) {
+    throw new Error(`cordis.patch.yml 里 llm-pi-ai 的 providers 写成了行内形式，不敢自动改：第 ${prov + 1} 行。\n`
+      + '  请把它展开成多行（providers: 换行后每行一个 provider）再重新运行本脚本。');
+  }
+  lines.splice(prov + 1, 0,
+    ' '.repeat(provIndent + 2) + `# === ${MARK} BEGIN ===`,
+    ...providerLines(provIndent + 2),
+    ' '.repeat(provIndent + 2) + `# === ${MARK} END ===`);
+}
+
 function patchCordis(remove = false) {
   const text = fs.readFileSync(CORDIS_FILE, 'utf8');
   const eol = eolOf(text);
   const lines = readLines(CORDIS_FILE);
 
-  // 1) 删掉旧的标记块（旧版把 labai 通道塞在 newapi-provider 里，也在这个范围内）
+  // 1) 删掉上次写入的标记块（旧版塞在 newapi-provider 里的那一段也在这个范围内）
   const b = lines.findIndex((l) => l.includes(BEGIN));
   const e = lines.findIndex((l) => l.includes(END));
-  if (b >= 0 && e > b) lines.splice(b, e - b + 1);
+  if (b >= 0 && e > b) {
+    // 独立成段时，安装会前后各补一个空行做分隔；卸载要顺手收掉一个，否则每装一次多一行空行
+    const beforeBlank = b > 0 && !lines[b - 1].trim();
+    const afterBlank = e + 1 < lines.length && !lines[e + 1].trim();
+    lines.splice(b, e - b + 1);
+    if (beforeBlank && afterBlank) lines.splice(b, 1);
+  }
 
   // 1b) 清掉删块后留下的空 `- insert:`（重装两次会累积出空壳）
   for (let i = lines.length - 1; i >= 0; i -= 1) {
@@ -222,36 +326,7 @@ function patchCordis(remove = false) {
     else lines.splice(a, 1);
   }
 
-  if (!remove) {
-    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
-    lines.push('');
-    lines.push('- insert:');
-    lines.push(`    # === ${MARK} BEGIN ===`);
-    lines.push(`    - id: ${PROVIDER_ID}`);
-    lines.push('      name: dsh-newapi-provider');
-    lines.push('      config:');
-    lines.push(`        providerId: ${PROVIDER_ID}`);
-    lines.push(`        displayName: ${LABEL}`);
-    lines.push('        channels:');
-    lines.push(`          - id: ${CHANNEL_ID}`);
-    lines.push(`            name: ${LABEL}`);
-    lines.push(`            baseURL: ${PROXY_URL}`);
-    lines.push(`            apiKeyEnv: ${CRED_NAME}`);
-    lines.push('            headers: {}');
-    lines.push('            models:');
-    lines.push('              deepseek-flash:');
-    lines.push('                name: DeepSeek Flash');
-    lines.push('              deepseek-v4-pro:');
-    lines.push('                name: DeepSeek V4 Pro');
-    // 必须有白名单：不写的话插件启动时要去网关拉一次模型列表，DSH 刚起来时
-    // 本地代理可能还没监听，拉不到就等于这个分组里一个模型都没有（表现为「没有分组」）。
-    lines.push('            enabledModels:');
-    lines.push('              - deepseek-flash');
-    lines.push('              - deepseek-v4-pro');
-    lines.push(`        activeChannel: ${CHANNEL_ID}`);
-    lines.push(`    # === ${MARK} END ===`);
-    lines.push('');
-  }
+  if (!remove) insertPiAiProvider(lines);
 
   writeLines(CORDIS_FILE, lines, eol);
 }
@@ -386,18 +461,12 @@ async function main() {
   if (seedIps.length) patch.seedIps = Array.from(new Set([...DEFAULTS.seedIps, ...seedIps]));
   writeConfig(patch, CONFIG_FILE);
 
-  if (!ensureNewapiProvider()) {
-    throw new Error(
-      '这台电脑的 DSH 缺少 dsh-newapi-provider，自动安装没成功。\n'
-      + '  处理办法：打开 DSH → 插件 → 市场，搜 dsh-newapi-provider 装上，再重新运行本安装脚本。',
-    );
-  }
-
   installFiles();
   patchPackageJson(false);
   patchCordis(false);
   patchCredentials(key, false);
   printDone(backupDir);
+  verifyProvider();
   console.log('下一步：DSH 先别打开，等审批通过后再打开。\n');
   await reportToGateway(key);
 }

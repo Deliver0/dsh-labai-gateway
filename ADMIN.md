@@ -12,7 +12,7 @@
 | 页签 | 能做什么 |
 | --- | --- |
 | ① 发 Key & 审批 | 填姓名/邮箱/IP 一步生成 Key；待审批列表显示谁装好了、报到时间和来源 IP，点「通过」/「拒绝」 |
-| ② 用量监控 | 顶部五张卡（成员数 / 待审批 / 今日调用 / 本月 tokens 进度 / 本月费用）；两张图：最近 14 天按成员堆叠的每日用量、本月成员占比饼图；表格里每人今日/本月调用与 tokens、**本月费用**，点「明细」看按模型拆分（含费用）、最近 20 次调用、他的 Key |
+| ② 用量监控 | 顶部五张卡（成员数 / 待审批 / 今日调用 / 本月 tokens 进度 / 本月费用）；两张图：最近 14 天按成员堆叠的每日用量（tokens）、**本月成员费用占比**环形图（按人民币分，圆心是本组本月估算费用）；表格里每人今日/本月调用与 tokens、**本月费用**，点「明细」看按模型拆分（含费用）、最近 20 次调用、他的 Key |
 | ③ 成员管理 | 停用 / 恢复 / 通过 / 拒绝 / 重发 Key / 吊销 Key |
 
 默认每 15 秒自动刷新。令牌来自 `config.json` 的 `admin_token`，bat 会自动带上；手动打开 `/admin` 时页面会让你粘一次。
@@ -167,8 +167,15 @@ node bin/smoke.mjs      # 5 项：对真实网关跑模型列表、非流式、S
 ```
 
 ```bash
+# 改了安装脚本之后跑这个：在临时目录里真跑一遍 bin/setup.mjs，覆盖
+# 「全新配置 / 已有 llm-pi-ai / 有 config 没 providers / 行内写法该拒绝 / 连装两次幂等」，
+# 每个用例都验证卸载能原样还原。不碰 ~/.dsh 和 ~/.labai。
+node test/setup-cases.mjs
+```
+
+```bash
 # 改了 admin.html 的图表之后跑这个：抽 <script> 在 stub DOM 里执行 renderCharts()，
-# 校验 SVG 结构、柱高/坐标是否为 NaN、饼图百分比是否合计 100%
+# 校验 SVG 结构、柱高/坐标是否为 NaN、饼图百分比是否合计 100%、圆心是不是人民币
 node winhost/tools/check_charts.mjs                 # 用内置样例
 node winhost/tools/check_charts.mjs usage.json      # 用 /gw/api/admin/usage 的真实返回
 ```
@@ -196,22 +203,36 @@ git add index.json && git commit -m "chore: pin market index" && git push
 
 ## 模型选择里找不到 Lab436 分组
 
-先确认三件事，按顺序排：
+先看配置里 `lab436` 是挂在**哪个插件**下面的。
 
-1. **配置里有没有 `enabledModels`**。`dsh-newapi-provider` 的渠道有两种模式：
-   写了 `enabledModels` 就是「白名单」，模型直接从配置里读；不写就是「自动」，
-   插件启动时要向网关拉一次 `/v1/models`。DSH 刚起来时本地代理（8801）可能还没监听，
-   拉不到就一个模型都没有，表现就是**分组是空的或者干脆看不到**。
-   所以 labai 渠道必须带这两行：
+**正确写法：挂在 `llm-pi-ai` 里。**
 
-   ```yaml
-            enabledModels:
-              - deepseek-flash
-              - deepseek-v4-pro
-   ```
+```yaml
+- id: llm-pi-ai
+  config:
+    providers:
+      lab436:
+        displayName: Lab436
+        api: openai-completions
+        baseURL: http://127.0.0.1:8801/v1
+        apiKeyEnv: LABAI_API_KEY
+```
 
+**错误写法：再挂一个 `dsh-newapi-provider` 实例。** 这是早期版本的做法，也是这一页曾经排查不出来的原因：
+
+`dsh-newapi-provider` 的 HTTP 路由前缀是写死的常量 `/newapi-provider/api/`，不随 `providerId` 变；
+DSH 的 `webServer.register()` 按 `(kind, path)` 判重，第二次注册直接
+`throw new Error('webserver: duplicate prefix route ...')`，**整个实例随之失效** ——
+模型选择里没有这一组，日志里也只有一行不起眼的报错。所以一个 profile 里只能有一个
+`dsh-newapi-provider` 实例，要加第二组必须换插件。
+
+`llm-pi-ai` 是 DSH 内置的，一个实例可以挂任意多个 provider，各自有 `displayName`，
+不注册新路由，天然没有这个冲突。`setup.mjs` 现在写的就是这种。
+
+排查顺序：
+
+1. **`--dump-config` 里有没有 `lab436`**（见下），没有就是没写进配置或版本不支持 `llm-pi-ai`。
 2. **改完配置要完全退出 DSH 再打开**（托盘也要退），它只在启动时读 `cordis.patch.yml`。
-
 3. **代理和网关都活着**：`curl -s --noproxy "*" http://127.0.0.1:8801/v1/models`
    应该返回两个模型。8801 是 DSH 里的本地代理，8800 是网关本体，两个都要在。
 
@@ -219,15 +240,19 @@ git add index.json && git commit -m "chore: pin market index" && git push
 
 ```bash
 mkdir -p ~/.dsh/profiles/labtest
-cp ~/.dsh/profiles/desktop/{cordis.patch.yml,cordis.yml,package.json} ~/.dsh/profiles/labtest/
+cp ~/.dsh/profiles/desktop/{cordis.patch.yml,cordis.yml,package.json,pnpm-workspace.yaml} ~/.dsh/profiles/labtest/
 # 给 labtest 的 node_modules 建目录联接指向 desktop（PowerShell）
 New-Item -ItemType Junction -Path "$env:USERPROFILE\.dsh\profiles\labtest\node_modules" `
   -Target "$env:USERPROFILE\.dsh\profiles\desktop\node_modules"
-dsh --profile labtest --dump-config | grep -A 20 "id: labai-provider"
+dsh --profile labtest --dump-config | grep -A 16 "id: llm-pi-ai"
 ```
 
-输出里能看到 `displayName: Lab436` 和 `enabledModels` 就说明配置本身没问题，问题在运行时。
+输出里能看到 `displayName: Lab436` 就说明配置本身没问题，问题在运行时。
 用完记得删掉 `labtest`（`node_modules` 是联接，删的时候只删链接）。
+
+还想确认界面里真的出现了这一组，可以起一个临时实例，用无头浏览器点开模型选择器读文字：
+`node winhost/tools/_cdp_probe3.mjs "http://127.0.0.1:2731/?token=..."`，
+输出里应该出现 `Lab436` 这一行分组名。
 
 ## 边界
 
