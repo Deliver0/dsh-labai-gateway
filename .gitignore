@@ -1,0 +1,18 @@
+# 本地运行产生的东西，绝不要提交
+node_modules/
+.labai/
+*.cache.json
+labai.json
+dsh.json
+*.log
+.DS_Store
+Thumbs.db
+
+# 备份 / 密钥 / 私有配置
+backups/
+.credentials.yaml
+config.json
+*.pem
+*.key
+.env
+.env.*

@@ -1,0 +1,3 @@
+# Windows 批处理必须是 CRLF + 纯 ASCII，行尾被改成 LF 会直接执行失败。
+# -text 让 git 原样保存字节，clone / 下载 ZIP / raw 下载都不会改行尾。
+*.bat -text

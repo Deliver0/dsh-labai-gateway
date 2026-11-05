@@ -1,0 +1,54 @@
+{
+  "name": "dsh-labai-gateway",
+  "version": "1.0.0",
+  "description": "实验室 AI 网关的 DSH 插件：本机反代 + 自动发现网关 IP，DHCP 换地址后无需重新配置",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "lab",
+    "gateway",
+    "proxy",
+    "dhcp",
+    "auto-discovery"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Deliver0/dsh-labai-gateway.git"
+  },
+  "homepage": "https://github.com/Deliver0/dsh-labai-gateway#readme",
+  "bugs": {
+    "url": "https://github.com/Deliver0/dsh-labai-gateway/issues"
+  },
+  "scripts": {
+    "selftest": "node bin/selftest.mjs",
+    "smoke": "node bin/smoke.mjs",
+    "setup": "node bin/setup.mjs",
+    "teardown": "node bin/setup.mjs --uninstall",
+    "update-index": "node bin/update-index.mjs"
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./proxy": "./lib/proxy.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "bin",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
