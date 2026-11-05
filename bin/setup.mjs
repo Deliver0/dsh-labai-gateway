@@ -243,6 +243,11 @@ function patchCordis(remove = false) {
     lines.push('                name: DeepSeek Flash');
     lines.push('              deepseek-v4-pro:');
     lines.push('                name: DeepSeek V4 Pro');
+    // 必须有白名单：不写的话插件启动时要去网关拉一次模型列表，DSH 刚起来时
+    // 本地代理可能还没监听，拉不到就等于这个分组里一个模型都没有（表现为「没有分组」）。
+    lines.push('            enabledModels:');
+    lines.push('              - deepseek-flash');
+    lines.push('              - deepseek-v4-pro');
     lines.push(`        activeChannel: ${CHANNEL_ID}`);
     lines.push(`    # === ${MARK} END ===`);
     lines.push('');

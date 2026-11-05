@@ -194,6 +194,41 @@ git add index.json && git commit -m "chore: pin market index" && git push
 
 `.bat` 必须是纯 ASCII + CRLF，`.gitattributes` 里 `*.bat -text` 保证 Git 不改行尾。`.gitignore` 排除了 `config.json`、`.credentials.yaml`、`dsh.json` 等，**只发 `dsh-plugin/`，别把整个 `lab-ai-gateway/` 传上去**。
 
+## 模型选择里找不到 Lab436 分组
+
+先确认三件事，按顺序排：
+
+1. **配置里有没有 `enabledModels`**。`dsh-newapi-provider` 的渠道有两种模式：
+   写了 `enabledModels` 就是「白名单」，模型直接从配置里读；不写就是「自动」，
+   插件启动时要向网关拉一次 `/v1/models`。DSH 刚起来时本地代理（8801）可能还没监听，
+   拉不到就一个模型都没有，表现就是**分组是空的或者干脆看不到**。
+   所以 labai 渠道必须带这两行：
+
+   ```yaml
+            enabledModels:
+              - deepseek-flash
+              - deepseek-v4-pro
+   ```
+
+2. **改完配置要完全退出 DSH 再打开**（托盘也要退），它只在启动时读 `cordis.patch.yml`。
+
+3. **代理和网关都活着**：`curl -s --noproxy "*" http://127.0.0.1:8801/v1/models`
+   应该返回两个模型。8801 是 DSH 里的本地代理，8800 是网关本体，两个都要在。
+
+想确认配置有没有被真正加载，用临时 profile 合成一次（不会动到桌面版）：
+
+```bash
+mkdir -p ~/.dsh/profiles/labtest
+cp ~/.dsh/profiles/desktop/{cordis.patch.yml,cordis.yml,package.json} ~/.dsh/profiles/labtest/
+# 给 labtest 的 node_modules 建目录联接指向 desktop（PowerShell）
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.dsh\profiles\labtest\node_modules" `
+  -Target "$env:USERPROFILE\.dsh\profiles\desktop\node_modules"
+dsh --profile labtest --dump-config | grep -A 20 "id: labai-provider"
+```
+
+输出里能看到 `displayName: Lab436` 和 `enabledModels` 就说明配置本身没问题，问题在运行时。
+用完记得删掉 `labtest`（`node_modules` 是联接，删的时候只删链接）。
+
 ## 边界
 
 - 每人一把 Key、网关只存哈希、可绑来源 IP、按人限额与审计，都在网关侧，插件不削弱这些。
