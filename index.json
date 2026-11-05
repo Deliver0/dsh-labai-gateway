@@ -47,11 +47,11 @@
       "versions": [
         {
           "version": "1.0.1",
-          "publishTimestamp": 1793880173,
+          "publishTimestamp": 1793889718,
           "source": {
             "type": "git",
             "url": "https://github.com/Deliver0/dsh-labai-gateway",
-            "commit": "4b98099dc944c8a2664a278cb01b68eb8473715e"
+            "commit": "6c5853a3a7ddaf4f439546f0e106db8ebb758558"
           },
           "engines": {
             "dsh": ">=0.2.1"
