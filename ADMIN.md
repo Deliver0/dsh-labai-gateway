@@ -12,10 +12,35 @@
 | 页签 | 能做什么 |
 | --- | --- |
 | ① 发 Key & 审批 | 填姓名/邮箱/IP 一步生成 Key；待审批列表显示谁装好了、报到时间和来源 IP，点「通过」/「拒绝」 |
-| ② 用量监控 | 全员今日/本月/累计调用与 tokens、全组月度进度条，点「明细」看按模型拆分、最近 20 次调用、他的 Key |
+| ② 用量监控 | 顶部五张卡（成员数 / 待审批 / 今日调用 / 本月 tokens 进度 / 本月费用）；两张图：最近 14 天按成员堆叠的每日用量、本月成员占比饼图；表格里每人今日/本月调用与 tokens、**本月费用**，点「明细」看按模型拆分（含费用）、最近 20 次调用、他的 Key |
 | ③ 成员管理 | 停用 / 恢复 / 通过 / 拒绝 / 重发 Key / 吊销 Key |
 
 默认每 15 秒自动刷新。令牌来自 `config.json` 的 `admin_token`，bat 会自动带上；手动打开 `/admin` 时页面会让你粘一次。
+想直接落在某一页，加 `?tab=usage` 或 `?tab=members`（可以存成书签）。
+
+### 费用是怎么算的
+
+页面上的「¥」都是**估算值**，不是账单。口径：
+
+```text
+费用 = (输入 tokens × 输入单价 + 输出 tokens × 输出单价) ÷ 1,000,000
+```
+
+单价在 `winhost/config.json` 的 `pricing` 里，按模型分开（元/百万 tokens，取自 DeepSeek 官网定价页）：
+
+| 模型 | 输入 | 输出 |
+| --- | --- | --- |
+| `deepseek-flash` | 2.0 | 8.0 |
+| `deepseek-v4-pro` | 9.0 | 27.0 |
+
+两处会让它**偏高**，看数时心里有数：
+
+- 用的是**高峰价**，DeepSeek 空闲时段半价；
+- 网关拿不到「缓存命中」的 token 数，命中的部分实际更便宜。
+
+想按实际账单校准，改 `pricing` 里的数字即可，改完重启网关生效；`pricing` 里也可以加一个 `"default"` 兜底档，防止新模型没配价格时算出 0。
+
+上表数字取自官网定价页，官方调价时以 <https://api-docs.deepseek.com/zh-cn/quick_start/pricing> 为准。
 
 ## 一名同学从零到能用的完整流程
 
@@ -140,6 +165,15 @@ node bin/smoke.mjs      # 5 项：对真实网关跑模型列表、非流式、S
 # 在 winhost 目录跑，会自动建一个临时测试成员并在结束后清理；会真实消耗一次极小的调用额度
 .\.venv\Scripts\python.exe e2e_approval.py
 ```
+
+```bash
+# 改了 admin.html 的图表之后跑这个：抽 <script> 在 stub DOM 里执行 renderCharts()，
+# 校验 SVG 结构、柱高/坐标是否为 NaN、饼图百分比是否合计 100%
+node winhost/tools/check_charts.mjs                 # 用内置样例
+node winhost/tools/check_charts.mjs usage.json      # 用 /gw/api/admin/usage 的真实返回
+```
+
+不用装浏览器。想看真实页面就 `admin.bat`，或直接 `http://127.0.0.1:8800/admin?tab=usage&token=<admin_token>`。
 
 ## 发版（改了插件代码才需要）
 
