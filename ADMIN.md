@@ -2,28 +2,69 @@
 
 同学只看 `README.md`，这里记维护用的东西。
 
-## 平时最常用（在网关主机上）
+## 管理面板（平时用这个）
+
+双击 `winhost/admin.bat`：会先确保网关在跑，然后自动带管理员令牌打开浏览器里的可视化界面。
+界面是 `winhost/admin.html`，挂在网关的 `/admin` 上，纯本地、不依赖外网。
+
+三个页签：
+
+| 页签 | 能做什么 |
+| --- | --- |
+| ① 发 Key & 审批 | 填姓名/邮箱/IP 一步生成 Key；待审批列表显示谁装好了、报到时间和来源 IP，点「通过」/「拒绝」 |
+| ② 用量监控 | 全员今日/本月/累计调用与 tokens、全组月度进度条，点「明细」看按模型拆分、最近 20 次调用、他的 Key |
+| ③ 成员管理 | 停用 / 恢复 / 通过 / 拒绝 / 重发 Key / 吊销 Key |
+
+默认每 15 秒自动刷新。令牌来自 `config.json` 的 `admin_token`，bat 会自动带上；手动打开 `/admin` 时页面会让你粘一次。
+
+## 一名同学从零到能用的完整流程
+
+1. **你在群里发一个链接**（见下面「发给同学的链接」），不用给任何人发文件。
+2. **你在管理页 ① 里生成 Key**，私聊发给本人。此时成员状态是 `待审批`，Key 还不能用。
+3. **同学自己下载安装脚本、双击、粘贴 Key、回车**。安装脚本会向网关 `/gw/api/claim` 报到，
+   把报到时间、来源 IP、机器名记下来，并提示他「等管理员审批」。
+4. **管理页 ① 的待审批列表出现这个人**，核对姓名/IP 后点「通过」。成员变 `正常`，Key 立刻生效。
+5. 同学重新打开 DSH 即可使用；他也能在 `127.0.0.1:8801/__labai/status` 看到 `approval.status` 从 `pending` 变 `active`。
+
+状态：`pending` 待审批 → `active` 正常 → `disabled` 停用/拒绝 → `active` 恢复。
+待审批期间所有 API 请求返回 403，但**可以先签 Key**（发 Key 本来就在审批之前，管理页 ① 就是一步做完）。停用期间 API、网页登录、签新 Key 都会被拒。
+
+> 兜底：就算同学那步没报到成功，DSH 启动时的 `/v1/models` 也会在网关侧自动登记，人一样会出现在待审批列表里。
+
+## 发给同学的链接（只发这一个）
+
+```
+https://github.com/Deliver0/dsh-labai-gateway/releases/latest/download/LabAI-Setup.bat
+```
+
+这是 **Release 资产 `LabAI-Setup.bat`**（内容就是 `install-online.bat` 的副本），双击会自动从 GitHub 拉完整插件再进入粘贴 Key 流程。
+链接固定不变，插件代码更新只要 push 到 `main` 即可；**只有改了 `install-online.bat` 本身**，才需要把新副本重新传到 Release 覆盖同名资产。
+
+浏览器/Windows 可能提示「此文件不安全」，让同学点「保留 → 仍要运行」即可（未签名的实验室脚本，正常现象）。
+备用链接（下载 ZIP 自己解压）：<https://github.com/Deliver0/dsh-labai-gateway/archive/refs/heads/main.zip>，
+或打开仓库点 `Code → Download ZIP`。`raw.githubusercontent.com` 在本校网络不通，
+jsDelivr 会拦 `.bat`，所以分发只走 `github.com` / Release，别改成 raw 或 CDN 链接。
+
+## 命令行（不想开界面时）
 
 ```powershell
 cd <项目目录>\lab-ai-gateway\winhost
 $py = ".\.venv\Scripts\python.exe"
 
-& $py ..\gateway\admin_cli.py add 张三 zhangsan@mail.com              # 加人
+& $py ..\gateway\admin_cli.py add 张三 zhangsan@mail.com              # 加人（默认待审批）
 & $py ..\gateway\admin_cli.py apikey zhangsan@mail.com 10.16.35.101 张三的工位机  # 发 Key（只显示一次）
 & $py ..\gateway\admin_cli.py list                                    # 看所有人
 & $py ..\gateway\admin_cli.py usage                                   # 看每人用量
 & $py ..\gateway\admin_cli.py usage zhangsan@mail.com                 # 看某个人明细
-& $py ..\gateway\admin_cli.py disable zhangsan@mail.com 毕业离组        # 停用
-& $py ..\gateway\admin_cli.py enable zhangsan@mail.com                 # 恢复
+& $py ..\gateway\admin_cli.py enable zhangsan@mail.com                 # 通过审批 / 恢复
+& $py ..\gateway\admin_cli.py disable zhangsan@mail.com 毕业离组        # 停用 / 拒绝
 & $py ..\gateway\admin_cli.py keys                                     # 看所有 Key
 & $py ..\gateway\admin_cli.py revokekey zhangsan@mail.com              # 吊销 Key（不可恢复，要重发）
 ```
 
 **停用 vs 吊销**：`disable` 只是把人关掉，原来的 Key 留着，`enable` 后立刻能继续用，适合临时限制。`revokekey` 是把 Key 作废，得重新签发并发给本人，适合 Key 泄露或人真的走了。
 
-停用期间这人的所有 API 请求会返回 403 `账号已停用`，网页登录也会被拦；同时不能给他签新 Key。
-
-改完 `config.json` 或 Key 之后记得 `stop.bat → start.bat` 重启服务（配置是启动时读进内存的）。
+`app.py` 和 `config.json` 都是启动时加载的，改完**必须重启网关**才生效；`admin.html` 是每次请求现读的，改完刷新浏览器就行。
 
 ## 网关侧要求
 
@@ -84,9 +125,15 @@ node bin/selftest.mjs   # 9 项：模拟网关换 IP，验证发现/重试/POST 
 node bin/smoke.mjs      # 5 项：对真实网关跑模型列表、非流式、SSE、免填 Key
 ```
 
+```powershell
+# 12 项：完整审批链路（发 Key -> 报到 -> 待审批拦截 -> 通过 -> 真实对话 -> 停用/恢复）
+# 在 winhost 目录跑，会自动建一个临时测试成员并在结束后清理；会真实消耗一次极小的调用额度
+.\.venv\Scripts\python.exe e2e_approval.py
+```
+
 ## 发版（改了插件代码才需要）
 
-索引源：`https://cdn.jsdelivr.net/gh/Deliver0/dsh-labai-gateway@v1.0.0/index.json`（`@main` 是滚动版，CDN 有数小时缓存）。jsDelivr 打不开时用 `https://raw.githubusercontent.com/Deliver0/dsh-labai-gateway/v1.0.0/index.json`。
+索引源：`https://cdn.jsdelivr.net/gh/Deliver0/dsh-labai-gateway@v1.0.1/index.json`（`@main` 是滚动版，CDN 有数小时缓存）。jsDelivr 打不开时用 `https://raw.githubusercontent.com/Deliver0/dsh-labai-gateway/v1.0.1/index.json`。
 
 DSH format-1 索引的 Git 源必须是 `source.type: "git"` + 规范 https URL + **40 位小写 commit SHA**，不能用 `"github"`、不能填分支名。所以发版是两步提交，避免「索引引用自己」：
 

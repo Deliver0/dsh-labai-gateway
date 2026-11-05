@@ -20,7 +20,7 @@ import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { DEFAULTS, readConfig, writeConfig, DEFAULT_CONFIG_PATH } from '../lib/proxy.mjs';
+import { DEFAULTS, readConfig, writeConfig, DEFAULT_CONFIG_PATH, GatewayFinder } from '../lib/proxy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_DIR = path.resolve(HERE, '..');
@@ -262,19 +262,68 @@ function removeFiles() {
 
 function printDone(backupDir) {
   console.log(`
-安装完成！
+插件装好了。
 
   本地代理    ${PROXY_URL}   （DSH 里固定填这个，永远不用改）
   网关地址    自动发现：先试上次的地址，再按网段找；换了 IP 自己会更新
   DSH 通道    「实验室网关」已添加并设为默认
   备份位置    ${backupDir}
-
-下一步：完全退出 DeepSeek Harness，再重新打开。
-
-检查是否连上：浏览器打开 ${PROXY_URL}/__labai/status
-  看到 "ip": "10.x.x.x" 就说明已经找到网关了。
-  看到 "ip": null 说明网关没开机 / 防火墙没放行 ${DEFAULTS.gatewayPort} 端口。
 `);
+}
+
+/** 粘贴完 Key 向网关报到一次：把「我装好了」记进管理员的待审批列表。 */
+async function reportToGateway(key) {
+  const cfg = readConfig({}, CONFIG_FILE);
+  // 只试缓存地址和管理员预置的 IP，不做整段扫描（报到不该拖慢安装）。
+  // 万一网关刚换 IP 没连上，DSH 启动时的 /v1/models 也会在网关侧自动登记。
+  const finder = new GatewayFinder({ ...cfg, scanNets: [] });
+  let ip = null;
+  try {
+    ip = await finder.current(true);
+  } catch {
+    ip = null;
+  }
+
+  if (!ip) {
+    console.log('  暂时连不上网关，申请还没提交。连上校园网后重新打开 DSH 会自动报到，不用重装。\n');
+    return;
+  }
+
+  const device = `${os.platform()} ${os.hostname()}`.replace(/[^\x20-\x7e]/g, '?').slice(0, 120);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const r = await fetch(`http://${ip}:${cfg.gatewayPort}/gw/api/claim`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${key}`,
+        'content-type': 'application/json',
+        'x-labai-device': device,
+      },
+      body: '{}',
+      signal: ctrl.signal,
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      console.log(`  报到没成功：${(d.error && d.error.message) || d.detail || ('HTTP ' + r.status)}`);
+      console.log('  把这段提示截图发给管理员即可，不用重装。\n');
+      return;
+    }
+    if (d.status === 'pending') {
+      console.log('  --------------------------------------------------');
+      console.log('   申请已提交，正在等管理员审批');
+      console.log('   管理员在管理页点「通过」后，重新打开 DSH 就能用了。');
+      console.log(`   随时查状态： ${PROXY_URL}/__labai/status`);
+      console.log('   看到 "approval":{"status":"active"} 就是通过了。');
+      console.log('  --------------------------------------------------\n');
+    } else {
+      console.log(`  ${d.message || '已经通过审批，可以正常使用了。'}\n`);
+    }
+  } catch (err) {
+    console.log(`  暂时连不上网关（${(err && err.message) || '超时'}），联网后重新打开 DSH 会自动报到。\n`);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function main() {
@@ -312,6 +361,8 @@ async function main() {
   patchCordis(false);
   patchCredentials(key, false);
   printDone(backupDir);
+  console.log('下一步：完全退出 DeepSeek Harness，再重新打开（托盘里也退掉）。\n');
+  await reportToGateway(key);
 }
 
 main().catch((err) => {
