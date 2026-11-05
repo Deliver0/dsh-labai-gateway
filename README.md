@@ -58,11 +58,19 @@
 https://cdn.jsdelivr.net/gh/Deliver0/dsh-labai-gateway@main/index.json
 ```
 
-jsDelivr 打不开时改用等价地址：
+想锁死在某个版本、不随后续提交变化，用带 tag 的不可变地址：
 
 ```text
-https://raw.githubusercontent.com/Deliver0/dsh-labai-gateway/main/index.json
+https://cdn.jsdelivr.net/gh/Deliver0/dsh-labai-gateway@v1.0.0/index.json
 ```
+
+jsDelivr 打不开时才考虑等价地址（部分校园网会屏蔽 `raw.githubusercontent.com`）：
+
+```text
+https://raw.githubusercontent.com/Deliver0/dsh-labai-gateway/v1.0.0/index.json
+```
+
+> `@main` 在 CDN 上有数小时缓存，改完索引不会立刻全网生效；`@v1.0.0` 不会变。
 
 这是 DSH 0.2.1+ 的 **format-1 插件市场索引**。加完后在「发现」页搜 `dsh-labai-gateway` 或「实验室网关」就能看到并点安装。宿主会把 Git 源拼成 `git+https://github.com/Deliver0/dsh-labai-gateway.git#<commit>`，装的是索引里**锁定的那个提交**，不会随 main 分支悄悄变化。
 
