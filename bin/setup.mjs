@@ -205,6 +205,15 @@ function patchCordis(remove = false) {
   const e = lines.findIndex((l) => l.includes(END));
   if (b >= 0 && e > b) lines.splice(b, e - b + 1);
 
+  // 1b) 清掉删块后留下的空 `- insert:`（重装两次会累积出空壳）
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (!/^- insert:\s*$/.test(lines[i])) continue;
+    let j = i + 1;
+    while (j < lines.length && !lines[j].trim()) j += 1;
+    const hasBody = j < lines.length && /^\s+\S/.test(lines[j]);
+    if (!hasBody) lines.splice(i, j - i);
+  }
+
   // 2) 恢复旧版改过的 activeChannel
   const a = lines.findIndex((l) => /^\s*activeChannel:/.test(l) && l.includes(`${MARK} 原值:`));
   if (a >= 0) {
@@ -230,10 +239,10 @@ function patchCordis(remove = false) {
     lines.push(`            apiKeyEnv: ${CRED_NAME}`);
     lines.push('            headers: {}');
     lines.push('            models:');
-    lines.push('              deepseek-chat:');
-    lines.push('                name: DeepSeek Chat');
-    lines.push('              deepseek-reasoner:');
-    lines.push('                name: DeepSeek Reasoner');
+    lines.push('              deepseek-flash:');
+    lines.push('                name: DeepSeek Flash');
+    lines.push('              deepseek-v4-pro:');
+    lines.push('                name: DeepSeek V4 Pro');
     lines.push(`        activeChannel: ${CHANNEL_ID}`);
     lines.push(`    # === ${MARK} END ===`);
     lines.push('');
@@ -284,7 +293,7 @@ function printDone(backupDir) {
 
   本地代理    ${PROXY_URL}   （DSH 里固定填这个，永远不用改）
   网关地址    自动发现：先试上次的地址，再按网段找；换了 IP 自己会更新
-  模型选择    多了一个「${LABEL}」分组，里面是 DeepSeek Chat / DeepSeek Reasoner
+  模型选择    多了一个「${LABEL}」分组，里面是 DeepSeek Flash / DeepSeek V4 Pro
   备份位置    ${backupDir}
 `);
 }

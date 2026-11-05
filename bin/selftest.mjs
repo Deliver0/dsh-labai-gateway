@@ -108,7 +108,7 @@ const cfg = {
 };
 
 const chatBody = JSON.stringify({
-  model: 'deepseek-chat',
+  model: 'deepseek-flash',
   messages: [{ role: 'user', content: '模拟一次带请求体的聊天调用' }],
 });
 const postOptions = { method: 'POST', headers: { 'content-type': 'application/json' } };

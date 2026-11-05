@@ -73,7 +73,7 @@ async function main() {
 
     // 3. 非流式对话
     const body = JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-flash',
       messages: [{ role: 'user', content: '只回复两个字：正常' }],
       max_tokens: 50,
       stream: false,
@@ -87,7 +87,7 @@ async function main() {
 
     // 4. SSE 流式（Agent 工具主要走这条）
     const streamBody = JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-flash',
       messages: [{ role: 'user', content: '数到 3，用逗号隔开' }],
       max_tokens: 60,
       stream: true,
