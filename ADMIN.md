@@ -5,7 +5,7 @@
 ## 平时最常用（在网关主机上）
 
 ```powershell
-cd "C:\Users\22587\WorkBuddy AI\2026-10-31-10-42-18\lab-ai-gateway\winhost"
+cd <项目目录>\lab-ai-gateway\winhost
 $py = ".\.venv\Scripts\python.exe"
 
 & $py ..\gateway\admin_cli.py add 张三 zhangsan@mail.com              # 加人
