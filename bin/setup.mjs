@@ -20,6 +20,7 @@ import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { DEFAULTS, readConfig, writeConfig, DEFAULT_CONFIG_PATH, GatewayFinder } from '../lib/proxy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -106,6 +107,59 @@ function installFiles() {
     }
   }
   fs.symlinkSync(INSTALL_DIR, LINK_PATH, 'junction');
+}
+
+/**
+ * 找 DSH 的 dsh CLI：先交给 PATH，再试 ~/.local/bin，最后从注册表读安装位置。
+ * DSH 不自带 newapi-provider，缺了它写进去的通道会让 DSH 加载失败。
+ */
+function dshCandidates() {
+  const isWin = process.platform === 'win32';
+  const name = isWin ? 'dsh.cmd' : 'dsh';
+  const list = [name];
+  list.push(path.join(HOME, '.local', 'bin', name));
+  if (isWin) {
+    for (const hive of ['HKLM', 'HKCU']) {
+      try {
+        const out = execFileSync(
+          'reg',
+          ['query', `${hive}\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall`, '/s', '/f', 'DeepSeek Harness', '/d'],
+          { encoding: 'utf8', windowsHide: true },
+        );
+        const loc = out.match(/InstallLocation\s+REG_\w+\s+(.+)/);
+        if (loc) list.push(path.join(loc[1].trim(), 'resources', 'runtime', 'cli', 'bin', 'dsh.cmd'));
+      } catch {
+        // 没有这一项就跳过
+      }
+    }
+  }
+  return list;
+}
+
+/** 确保 profile 里有 dsh-newapi-provider；没有就用 DSH 自带的 CLI 装一个。 */
+function ensureNewapiProvider() {
+  const target = path.join(NODE_MODULES, 'dsh-newapi-provider');
+  if (fs.existsSync(target)) return true;
+
+  console.log('\n  你的 DSH 还缺 New API 渠道插件，正在自动安装（只装这一次，可能要一两分钟）…');
+  for (const bin of dshCandidates()) {
+    try {
+      execFileSync(bin, ['plugin', '--profile', PROFILE, 'add', 'dsh-newapi-provider'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 240000,
+        windowsHide: true,
+        // Windows 上 .cmd 必须经 shell 才能被 Node 启动
+        shell: process.platform === 'win32',
+      });
+    } catch {
+      continue;
+    }
+    if (fs.existsSync(target)) {
+      console.log('  已装好 dsh-newapi-provider。\n');
+      return true;
+    }
+  }
+  return false;
 }
 
 /** package.json：登记 link 依赖 + bundle，保证以后 pnpm install 不会把插件弄丢。 */
@@ -313,8 +367,6 @@ async function reportToGateway(key) {
       console.log('  --------------------------------------------------');
       console.log('   申请已提交，正在等审批');
       console.log('   等管理员点了「通过」之后，重新打开 DSH 就能用了。');
-      console.log(`   随时查状态： ${PROXY_URL}/__labai/status`);
-      console.log('   看到 "approval":{"status":"active"} 就是通过了。');
       console.log('  --------------------------------------------------\n');
     } else {
       console.log(`  ${d.message || '已经通过审批，可以正常使用了。'}\n`);
@@ -355,6 +407,13 @@ async function main() {
   const patch = { apiKey: key, overrideAuth: true };
   if (seedIps.length) patch.seedIps = Array.from(new Set([...DEFAULTS.seedIps, ...seedIps]));
   writeConfig(patch, CONFIG_FILE);
+
+  if (!ensureNewapiProvider()) {
+    throw new Error(
+      '这台电脑的 DSH 缺少 dsh-newapi-provider，自动安装没成功。\n'
+      + '  处理办法：打开 DSH → 插件 → 市场，搜 dsh-newapi-provider 装上，再重新运行本安装脚本。',
+    );
+  }
 
   installFiles();
   patchPackageJson(false);
